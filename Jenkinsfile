@@ -114,24 +114,24 @@ pipeline {
                         def payload = JsonOutput.toJson([
                                 model : "qwen2.5:7b",
                                 prompt: """
-You are a senior Spring Boot developer.
+        You are a senior Spring Boot developer.
 
-Generate a complete JUnit 5 test class.
+        Generate a complete JUnit 5 test class.
 
-Requirements:
-- Spring Boot 3
-- JUnit 5
-- Mockito when necessary
-- Correct package declaration
-- Correct imports
-- Return ONLY Java code
-- No markdown
-- No explanations
+        Requirements:
+        - Spring Boot 3
+        - JUnit 5
+        - Mockito when necessary
+        - Correct package declaration
+        - Correct imports
+        - Return ONLY Java code
+        - No markdown
+        - No explanations
 
-Source Class:
+        Source Class:
 
-${sourceCode}
-""",
+        ${sourceCode}
+        """,
                                 stream: false
                         ])
 
@@ -149,9 +149,10 @@ ${sourceCode}
                                 returnStdout: true
                         ).trim()
 
-                        def result =
-                                new JsonSlurper()
-                                        .parseText(response)
+                        def generatedCode = new JsonSlurper()
+                                .parseText(response)
+                                .response
+                                .toString()
 
                         def parentDir =
                                 testFile.substring(
@@ -163,7 +164,7 @@ ${sourceCode}
 
                         writeFile(
                                 file: testFile,
-                                text: result.response
+                                text: generatedCode
                         )
 
                         echo "Generated:"
@@ -186,15 +187,29 @@ ${sourceCode}
             }
         }
 
-        stage('push code to git'){
-            steps{
-                script{
-                    sh """
-                    git checkout -b ai/tests
-                    git add .
-                    git commit -m "generates tests"
-                    git push
-                    """
+        stage('Push Code To Git') {
+
+            when {
+                expression {
+                    env.SKIP_PIPELINE != "true"
+                }
+            }
+
+            steps {
+                script {
+
+                    sh '''
+                        git config user.name "Jenkins AI"
+                        git config user.email "jenkins@example.com"
+
+                        git checkout -B ai/tests
+
+                        git add src/test/java
+
+                        git diff --cached --quiet || git commit -m "[AI] Generate tests"
+
+                        git push -u origin ai/tests --force
+                    '''
                 }
             }
         }
