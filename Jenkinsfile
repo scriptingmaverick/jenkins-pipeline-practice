@@ -237,9 +237,23 @@ pipeline {
                         git add src/test/java
 
                         git diff --cached --quiet || git commit -m "[AI] Generate tests"
-
-                        git push -u origin ai/tests --force
                     '''
+
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'github-pat',
+                            usernameVariable: 'GIT_USER',
+                            passwordVariable: 'GIT_TOKEN'
+                        )
+                    ]) {
+
+                        sh '''
+                            git remote set-url origin \
+                            https://${GIT_USER}:${GIT_TOKEN}@github.com/scriptingmaverick/jenkins-pipeline-practice.git
+
+                            git push -u origin ai/tests --force
+                        '''
+                    }
                 }
             }
         }
