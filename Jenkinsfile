@@ -247,6 +247,11 @@ pipeline {
                         )
                     ]) {
 
+                    sh '''
+                            echo "USER=$GIT_USER"
+                            echo "TOKEN_LENGTH=${#GIT_TOKEN}"
+                        '''
+
                         sh '''
                             git remote set-url origin \
                             https://${GIT_USER}:${GIT_TOKEN}@github.com/scriptingmaverick/jenkins-pipeline-practice.git
