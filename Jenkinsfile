@@ -17,10 +17,10 @@ pipeline {
                 script {
 
                     def changedFiles = sh(
-                        script: """
+                        script: '''
                             git diff --name-only HEAD~1 HEAD \
                             | grep '^src/main/java/.*\\.java$' || true
-                        """,
+                        ''',
                         returnStdout: true
                     ).trim()
 
