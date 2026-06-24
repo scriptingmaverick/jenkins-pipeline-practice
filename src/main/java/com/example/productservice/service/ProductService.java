@@ -25,4 +25,8 @@ public class ProductService {
                 .findFirst()
                 .orElse(null);
     }
+
+    public List<Product> getAllProducts() {
+        return products;
+    }
 }
