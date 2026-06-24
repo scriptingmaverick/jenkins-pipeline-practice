@@ -27,6 +27,8 @@ pipeline {
                     if (!changedFiles) {
                         echo "No Java files changed."
                         currentBuild.result = 'SUCCESS'
+
+                        env.SKIP_TEST_GENERATION = true
                         return
                     }
 
@@ -41,6 +43,11 @@ pipeline {
         stage('Generate Tests') {
             steps {
                 script {
+
+                    if (env.SKIP_TEST_GENERATION == "true") {
+                        echo "Skipping test generation."
+                        return
+                    }
 
                     def files = env.CHANGED_FILES.split("\\n")
 
@@ -98,10 +105,18 @@ ${sourceCode}
 
         stage("writing into a file"){
             steps{
-                writeFile(
-                    file: "src/test/java/.../GeneratedTest.java",
-                    text: env.TextFile
-                )
+
+                script{
+                    if (env.SKIP_TEST_GENERATION == "true") {
+                        echo "Skipping test generation."
+                        return
+                    }
+
+                    writeFile(
+                        file: "src/test/java/.../GeneratedTest.java",
+                        text: env.TextFile
+                    )
+                }
             }
         }
     }
