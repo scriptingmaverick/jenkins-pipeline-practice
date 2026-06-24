@@ -9,6 +9,8 @@ pipeline {
             }
         }
 
+        import groovy.json.JsonOutput
+
         stage('Ask Ollama') {
             steps {
                 script {
@@ -18,13 +20,13 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    writeFile file: 'payload.json', text: """
-        {
-            "model":"qwen2.5:7b",
-            "prompt":"Summarize the following git diff:\\n${diff.replace('"','\\\\\\"')}",
-            "stream":false
-        }
-        """
+                    def payload = JsonOutput.toJson([
+                        model: "qwen2.5:7b",
+                        prompt: "Summarize this git diff:\n${diff}",
+                        stream: false
+                    ])
+
+                    writeFile file: 'payload.json', text: payload
 
                     sh '''
                     curl http://host.docker.internal:11434/api/generate \
