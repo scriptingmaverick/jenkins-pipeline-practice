@@ -210,8 +210,28 @@ pipeline {
         }
 
         stage('Compile Generated Tests') {
+
+            when {
+                expression {
+                    env.FILES_TO_PROCESS?.trim()
+                }
+            }
+
             steps {
-                echo "Skipping compilation while debugging generated code"
+                sh './mvnw test-compile'
+            }
+        }
+
+        stage('Run Tests') {
+
+            when {
+                expression {
+                    env.FILES_TO_PROCESS?.trim()
+                }
+            }
+
+            steps {
+                sh './mvnw test'
             }
         }
 
@@ -219,9 +239,16 @@ pipeline {
 
              when {
 
+             allOf{
+
+                expression {
+                currentBuild.currentResult == 'SUCCESS'
+                }
+
                    expression {
                         env.FILES_TO_PROCESS?.trim()
                     }
+             }
 
             }
 
