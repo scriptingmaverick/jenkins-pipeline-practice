@@ -12,74 +12,95 @@ pipeline {
             }
         }
 
-        stage('Get Diff') {
+        stage('Find Changed Files') {
             steps {
                 script {
-                    env.GIT_DIFF = sh(
-                        script: 'git diff HEAD~1 HEAD',
+
+                    def changedFiles = sh(
+                        script: """
+                            git diff --name-only HEAD~1 HEAD \
+                            | grep '^src/main/java/.*\\.java$' || true
+                        """,
                         returnStdout: true
                     ).trim()
 
-                    echo "===== FILES CHANGED ====="
-                    sh 'git diff --name-status HEAD~1 HEAD'
+                    if (!changedFiles) {
+                        echo "No Java files changed."
+                        currentBuild.result = 'SUCCESS'
+                        return
+                    }
+
+                    env.CHANGED_FILES = changedFiles
+
+                    echo "Changed files:"
+                    echo changedFiles
                 }
             }
         }
 
-        stage('Ask Ollama') {
+        stage('Generate Tests') {
             steps {
                 script {
 
-                    def payload = JsonOutput.toJson([
-                        model : "qwen2.5:7b",
-                        prompt: """
-You are a senior software engineer.
+                    def files = env.CHANGED_FILES.split("\\n")
 
-Analyze the following git diff and provide:
+                    files.each { file ->
 
-1. Summary
-2. Files affected
-3. Risk level (LOW/MEDIUM/HIGH)
-4. Suggested tests
+                        echo "Processing ${file}"
 
-Git Diff:
+                        def sourceCode = readFile(file)
 
-${env.GIT_DIFF}
+                        def payload = JsonOutput.toJson([
+                                model : "qwen2.5:7b",
+                                prompt: """
+Generate JUnit 5 tests for the following Java class.
+
+Requirements:
+- Spring Boot 3
+- JUnit 5
+- Mockito where appropriate
+- Return ONLY Java code
+
+Class:
+
+${sourceCode}
 """,
-                        stream: false
-                    ])
+                                stream: false
+                        ])
 
-                    writeFile file: 'payload.json', text: payload
+                        writeFile(
+                                file: "payload.json",
+                                text: payload
+                        )
 
-                    def response = sh(
-                        script: '''
-                        curl -s http://host.docker.internal:11434/api/generate \
-                          -H "Content-Type: application/json" \
-                          -d @payload.json
-                        ''',
-                        returnStdout: true
-                    ).trim()
+                        def response = sh(
+                                script: '''
+                                    curl -s http://host.docker.internal:11434/api/generate \
+                                    -H "Content-Type: application/json" \
+                                    -d @payload.json
+                                ''',
+                                returnStdout: true
+                        ).trim()
 
-                    def result = new JsonSlurper().parseText(response)
+                        def result = new JsonSlurper().parseText(response)
 
-                    echo ""
-                    echo "=========================================="
-                    echo "AI CHANGE SUMMARY"
-                    echo "=========================================="
-                    echo result.response
-                    echo "=========================================="
+                        echo "================================="
+                        echo "Generated Test For ${file}"
+                        echo "================================="
+                        echo result.response
+                        echo "================================="
+
+                        env.TextFile = result.response
+                    }
                 }
             }
         }
-    }
 
-    post {
-        success {
-            echo "Pipeline completed successfully."
-        }
-
-        failure {
-            echo "Pipeline failed."
+        stage("writing into a file"){
+            writeFile(
+                file: "src/test/java/.../GeneratedTest.java",
+                text: env.TextFile
+            )
         }
     }
 }
