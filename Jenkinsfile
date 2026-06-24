@@ -95,66 +95,68 @@ pipeline {
 
         stage('Generate Tests') {
 
-             when {
-                    expression {
-                        env.FILES_TO_PROCESS?.trim()
+        ```
+        when {
+            expression {
+                env.FILES_TO_PROCESS?.trim()
+            }
+        }
+
+        steps {
+            script {
+
+                def files = env.FILES_TO_PROCESS.split("\\n")
+
+                files.each { sourceFile ->
+
+                    if (sourceFile.endsWith("Application.java")) {
+                        echo "Skipping Spring Boot application class"
+                        return
                     }
-             }
 
-            steps {
-                script {
+                    echo "===================================="
+                    echo "Processing ${sourceFile}"
+                    echo "===================================="
 
-                    def files = env.FILES_TO_PROCESS.split("\\n")
+                    def sourceCode = readFile(sourceFile)
 
-                    files.each { sourceFile ->
+                    def testFile = sourceFile
+                            .replace("src/main/java", "src/test/java")
+                            .replace(".java", "Test.java")
 
-                        if (sourceFile.endsWith("Application.java")) {
-                            echo "Skipping Spring Boot application class: ${sourceFile}"
-                            return
-                        }
+                    def generatedCode = null
 
-                        echo "===================================="
-                        echo "Processing ${sourceFile}"
-                        echo "===================================="
+                    def prompt = """
+        ```
 
-                        def sourceCode = readFile(sourceFile)
+        Generate a JUnit 5 test class.
 
-                        def testFile = sourceFile
-                                .replace("src/main/java", "src/test/java")
-                                .replace(".java", "Test.java")
+        Rules:
+
+        * Use only public methods.
+        * Never access private fields.
+        * Include all required imports.
+        * Return ONLY Java code.
+        * No markdown.
+        * No explanations.
+        * Code must compile.
+
+        Source:
+
+        ${sourceCode}
+        """
+
+        ````
+                    boolean valid = false
+
+                    for (int attempt = 1; attempt <= 3; attempt++) {
+
+                        echo "AI Generation Attempt ${attempt}"
 
                         def payload = JsonOutput.toJson([
-                            model : "qwen2.5:7b",
-                            prompt: """
-                        You are a Java code generator.
-
-                        Generate JUnit 5 tests.
-
-                        Rules:
-                        - Include all imports.
-                        - Use only public methods.
-                        - Never access private fields.
-                        - Never use reflection.
-                        - Return only Java code.
-                        - Ensure code compiles.
-
-                        STRICT RULES:
-
-                        1. Output ONLY valid Java source code.
-                        2. Do NOT explain anything.
-                        3. Do NOT use markdown.
-                        4. Do NOT use code fences.
-                        5. Do NOT write "Here is the code".
-                        6. Response MUST start with package declaration.
-                        7. Every import statement must end with a semicolon.
-                        8. Every Java statement must compile.
-                        9. Return only one Java class.
-
-                        Source Class:
-
-                        ${sourceCode}
-                        """,
-                            stream: false
+                                model : "qwen2.5:7b",
+                                prompt: prompt,
+                                stream: false
                         ])
 
                         writeFile(
@@ -171,7 +173,7 @@ pipeline {
                                 returnStdout: true
                         ).trim()
 
-                        def generatedCode = new JsonSlurper()
+                        generatedCode = new JsonSlurper()
                                 .parseText(response)
                                 .response
                                 .toString()
@@ -182,51 +184,106 @@ pipeline {
                                 .replace("```", "")
                                 .trim()
 
-                        if (!generatedCode.contains("@Test")) {
-                            error("Generated file contains no tests")
-                        }
-
                         if (generatedCode.contains(".products")) {
-                            error("AI accessed private field")
-                        }
 
+                            echo "Rejected: private field access"
+
+                            prompt = """
+        ````
+
+        Previous output failed.
+
+        Reason:
+        You accessed a private field.
+
+        Generate again using ONLY public methods.
+
+        Source:
+
+        ${sourceCode}
+        """
+        continue
+        }
+
+        ```
+                        if (!generatedCode.contains("@Test")) {
+
+                            echo "Rejected: no @Test annotation"
+
+                            prompt = """
+        ```
+
+        Previous output failed.
+
+        Reason:
+        No @Test methods were generated.
+
+        Generate again.
+
+        Source:
+
+        ${sourceCode}
+        """
+        continue
+        }
+
+        ```
                         if (!generatedCode.trim().endsWith("}")) {
-                            error("Generated Java file appears truncated")
-                        }
 
-                        def packageIndex = generatedCode.indexOf("package ")
+                            echo "Rejected: truncated Java file"
 
-                        if (packageIndex > 0) {
-                            generatedCode = generatedCode.substring(packageIndex)
-                        }
+                            prompt = """
+        ```
 
-                        def parentDir =
-                                testFile.substring(
-                                        0,
-                                        testFile.lastIndexOf('/')
-                                )
+        Previous output failed.
 
-                        sh "mkdir -p '${parentDir}'"
+        Reason:
+        Generated Java was incomplete.
 
-                        generatedCode = generatedCode
-                            .replace('```java', '')
-                            .replace('```', '')
-                            .trim()
+        Generate again.
 
-                        echo "===== GENERATED CODE ====="
-                        echo generatedCode.take(1000)
-                        echo "=========================="
+        Source:
 
-                        writeFile(
+        ${sourceCode}
+        """
+        continue
+        }
+
+        ```
+                        valid = true
+                        break
+                    }
+
+                    if (!valid) {
+                        error("Unable to generate valid test after 3 attempts")
+                    }
+
+                    def packageIndex = generatedCode.indexOf("package ")
+
+                    if (packageIndex > 0) {
+                        generatedCode = generatedCode.substring(packageIndex)
+                    }
+
+                    def parentDir =
+                            testFile.substring(
+                                    0,
+                                    testFile.lastIndexOf('/')
+                            )
+
+                    sh "mkdir -p '${parentDir}'"
+
+                    writeFile(
                             file: testFile,
                             text: generatedCode
-                        )
+                    )
 
-                        echo "Generated:"
-                        echo testFile
-                    }
+                    echo "Generated:"
+                    echo testFile
                 }
             }
+        }
+        ```
+
         }
 
         stage('Compile Generated Tests') {
