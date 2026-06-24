@@ -126,13 +126,10 @@ pipeline {
         Generate a complete JUnit 5 test class.
 
         Requirements:
-        - Spring Boot 3
-        - JUnit 5
-        - Mockito when necessary
-        - Correct package declaration
-        - Correct imports
-        - Return ONLY Java code
-        - No markdown
+        - Return ONLY raw Java code
+        - Do NOT wrap in markdown
+        - Do NOT use ```java
+        - Do NOT use ```
         - No explanations
 
         Source Class:
@@ -169,9 +166,14 @@ pipeline {
 
                         sh "mkdir -p '${parentDir}'"
 
+                        generatedCode = generatedCode
+                            .replaceAll("(?s)^```java\\s*", "")
+                            .replaceAll("(?s)^```\\s*", "")
+                            .replaceAll("(?s)\\s*```\\s*$", "")
+
                         writeFile(
-                                file: testFile,
-                                text: generatedCode
+                            file: testFile,
+                            text: generatedCode
                         )
 
                         echo "Generated:"
