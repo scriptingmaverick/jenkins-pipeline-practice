@@ -95,7 +95,7 @@ pipeline {
 
         stage('Generate Tests') {
 
-        ```
+
         when {
             expression {
                 env.FILES_TO_PROCESS?.trim()
@@ -127,8 +127,6 @@ pipeline {
                     def generatedCode = null
 
                     def prompt = """
-        ```
-
         Generate a JUnit 5 test class.
 
         Rules:
@@ -145,8 +143,6 @@ pipeline {
 
         ${sourceCode}
         """
-
-        ````
                     boolean valid = false
 
                     for (int attempt = 1; attempt <= 3; attempt++) {
@@ -184,13 +180,11 @@ pipeline {
                                 .replace("```", "")
                                 .trim()
 
-                        if (generatedCode.contains(".products")) {
+                        if (generatedCode.contains("private")) {
 
                             echo "Rejected: private field access"
 
                             prompt = """
-        ````
-
         Previous output failed.
 
         Reason:
@@ -205,14 +199,11 @@ pipeline {
         continue
         }
 
-        ```
                         if (!generatedCode.contains("@Test")) {
 
                             echo "Rejected: no @Test annotation"
 
                             prompt = """
-        ```
-
         Previous output failed.
 
         Reason:
@@ -227,14 +218,11 @@ pipeline {
         continue
         }
 
-        ```
                         if (!generatedCode.trim().endsWith("}")) {
 
                             echo "Rejected: truncated Java file"
 
                             prompt = """
-        ```
-
         Previous output failed.
 
         Reason:
@@ -248,8 +236,6 @@ pipeline {
         """
         continue
         }
-
-        ```
                         valid = true
                         break
                     }
@@ -282,7 +268,6 @@ pipeline {
                 }
             }
         }
-        ```
 
         }
 
