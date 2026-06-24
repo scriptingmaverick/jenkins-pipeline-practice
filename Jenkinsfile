@@ -39,7 +39,14 @@ pipeline {
                                     .replace("src/main/java", "src/test/java")
                                     .replace(".java", "Test.java")
 
-                            if (!fileExists(testFile)) {
+                            def exists = sh(
+                                script: """
+                                    git ls-files '${testFile}'
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            if (!exists) {
 
                                 echo "Missing test detected:"
                                 echo testFile
@@ -87,6 +94,12 @@ pipeline {
         }
 
         stage('Generate Tests') {
+
+             when {
+                    expression {
+                        env.FILES_TO_PROCESS?.trim()
+                    }
+             }
 
             when {
                 expression {
@@ -178,6 +191,12 @@ pipeline {
 
             when {
                 expression {
+                    env.FILES_TO_PROCESS?.trim()
+                }
+            }
+
+            when {
+                expression {
                     env.SKIP_PIPELINE != "true"
                 }
             }
@@ -188,6 +207,12 @@ pipeline {
         }
 
         stage('Push Code To Git') {
+
+             when {
+                    expression {
+                        env.FILES_TO_PROCESS?.trim()
+                    }
+                }
 
             when {
                 expression {
