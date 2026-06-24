@@ -1,0 +1,29 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Show Diff') {
+            steps {
+                sh '''
+                    echo "Current Commit:"
+                    git rev-parse HEAD
+
+                    echo ""
+                    echo "Previous Commit:"
+                    git rev-parse HEAD~1
+
+                    echo ""
+                    echo "Changed Files:"
+                    git diff --name-status HEAD~1 HEAD
+                '''
+            }
+        }
+    }
+}
