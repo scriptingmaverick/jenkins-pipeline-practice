@@ -182,7 +182,11 @@ pipeline {
 
                         if (generatedCode.contains("private")) {
 
-                            echo "Rejected: private field access"
+                                echo "===== GENERATED CODE ====="
+                                echo generatedCode.take(3000)
+                                echo "=========================="
+
+                                echo "Rejected: private field access"
 
                             prompt = """
         Previous output failed.
