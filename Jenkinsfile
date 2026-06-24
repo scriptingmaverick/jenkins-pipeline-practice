@@ -26,7 +26,7 @@ pipeline {
 curl http://host.docker.internal:11434/api/generate \
 -d '{
   "model":"qwen2.5:7b",
-  "prompt":"Summarize this git diff:\\n${DIFF}",
+  "prompt":"Summarize this git diff:\n${DIFF}",
   "stream":false
 }'
 """
