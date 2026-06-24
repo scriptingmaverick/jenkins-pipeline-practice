@@ -97,10 +97,12 @@ ${sourceCode}
         }
 
         stage("writing into a file"){
-            writeFile(
-                file: "src/test/java/.../GeneratedTest.java",
-                text: env.TextFile
-            )
+            steps{
+                writeFile(
+                    file: "src/test/java/.../GeneratedTest.java",
+                    text: env.TextFile
+                )
+            }
         }
     }
 }
