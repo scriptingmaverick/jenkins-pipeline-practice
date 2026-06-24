@@ -189,17 +189,20 @@ pipeline {
                                 echo "Rejected: private field access"
 
                             prompt = """
-        Previous output failed.
+                            Generate a JUnit 5 TEST CLASS.
 
-        Reason:
-        You accessed a private field.
+                            IMPORTANT:
+                            You must generate a TEST.
+                            Do not generate ProductService.
+                            Do not explain anything.
+                            Do not rewrite the source class.
 
-        Generate again using ONLY public methods.
+                            Previous output failed because it accessed private fields.
 
-        Source:
+                            Source:
 
-        ${sourceCode}
-        """
+                            ${sourceCode}
+                            """
         continue
         }
 
