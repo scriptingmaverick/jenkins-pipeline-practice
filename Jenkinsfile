@@ -167,9 +167,9 @@ pipeline {
                         sh "mkdir -p '${parentDir}'"
 
                         generatedCode = generatedCode
-                            .replaceAll("(?s)^```java\\s*", "")
-                            .replaceAll("(?s)^```\\s*", "")
-                            .replaceAll("(?s)\\s*```\\s*$", "")
+                            .replace('```java', '')
+                            .replace('```', '')
+                            .trim()
 
                         writeFile(
                             file: testFile,
