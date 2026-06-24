@@ -1,3 +1,4 @@
+        import groovy.json.JsonOutput
 pipeline {
     agent any
 
@@ -9,7 +10,6 @@ pipeline {
             }
         }
 
-        import groovy.json.JsonOutput
 
         stage('Ask Ollama') {
             steps {
