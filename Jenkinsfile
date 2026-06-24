@@ -101,12 +101,6 @@ pipeline {
                     }
              }
 
-            when {
-                expression {
-                    env.SKIP_PIPELINE != "true"
-                }
-            }
-
             steps {
                 script {
 
@@ -195,12 +189,6 @@ pipeline {
                 }
             }
 
-            when {
-                expression {
-                    env.SKIP_PIPELINE != "true"
-                }
-            }
-
             steps {
                 sh './mvnw test-compile'
             }
@@ -209,15 +197,11 @@ pipeline {
         stage('Push Code To Git') {
 
              when {
-                    expression {
+
+                   expression {
                         env.FILES_TO_PROCESS?.trim()
                     }
-                }
 
-            when {
-                expression {
-                    env.SKIP_PIPELINE != "true"
-                }
             }
 
             steps {
