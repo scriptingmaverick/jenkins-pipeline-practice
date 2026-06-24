@@ -9,20 +9,27 @@ pipeline {
             }
         }
 
-        stage('Show Diff') {
+        stage('Get Diff') {
             steps {
-                sh '''
-                    echo "Current Commit:"
-                    git rev-parse HEAD
+                script {
+                    env.DIFF = sh(
+                        script: "git diff HEAD~1 HEAD",
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
 
-                    echo ""
-                    echo "Previous Commit:"
-                    git rev-parse HEAD~1
-
-                    echo ""
-                    echo "Changed Files:"
-                    git diff --name-status HEAD~1 HEAD
-                '''
+        stage('Ask Ollama') {
+            steps {
+                sh """
+curl http://host.docker.internal:11434/api/generate \
+-d '{
+  "model":"qwen3:latest",
+  "prompt":"Summarize this git diff:\\n${DIFF}",
+  "stream":false
+}'
+"""
             }
         }
     }
