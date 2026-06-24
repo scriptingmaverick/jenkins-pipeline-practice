@@ -4,6 +4,10 @@ import groovy.json.JsonSlurper
 pipeline {
     agent any
 
+    environment {
+        SKIP_PIPELINE = "false"
+    }
+
     stages {
 
         stage('Checkout') {
@@ -12,9 +16,40 @@ pipeline {
             }
         }
 
-        stage('Find Changed Files') {
+        stage('Find Files To Process') {
             steps {
                 script {
+
+                    def filesToProcess = []
+
+                    echo "===== BOOTSTRAP MODE ====="
+
+                    def allJavaFiles = sh(
+                        script: '''
+                            find src/main/java -name "*.java"
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+                    if (allJavaFiles) {
+
+                        allJavaFiles.split("\\n").each { sourceFile ->
+
+                            def testFile = sourceFile
+                                    .replace("src/main/java", "src/test/java")
+                                    .replace(".java", "Test.java")
+
+                            if (!fileExists(testFile)) {
+
+                                echo "Missing test detected:"
+                                echo testFile
+
+                                filesToProcess.add(sourceFile)
+                            }
+                        }
+                    }
+
+                    echo "===== INCREMENTAL MODE ====="
 
                     def changedFiles = sh(
                         script: '''
@@ -24,51 +59,76 @@ pipeline {
                         returnStdout: true
                     ).trim()
 
-                    if (!changedFiles) {
-                        echo "No Java files changed."
-                        currentBuild.result = 'SUCCESS'
+                    if (changedFiles) {
 
-                        env.SKIP_TEST_GENERATION = true
+                        changedFiles.split("\\n").each { file ->
+
+                            if (!filesToProcess.contains(file)) {
+                                filesToProcess.add(file)
+                            }
+                        }
+                    }
+
+                    if (filesToProcess.isEmpty()) {
+
+                        echo "No files require test generation."
+
+                        env.SKIP_PIPELINE = "true"
                         return
                     }
 
-                    env.CHANGED_FILES = changedFiles
+                    env.FILES_TO_PROCESS =
+                            filesToProcess.join("\n")
 
-                    echo "Changed files:"
-                    echo changedFiles
+                    echo "===== FILES TO PROCESS ====="
+                    echo env.FILES_TO_PROCESS
                 }
             }
         }
 
         stage('Generate Tests') {
+
+            when {
+                expression {
+                    env.SKIP_PIPELINE != "true"
+                }
+            }
+
             steps {
                 script {
 
-                    if (env.SKIP_TEST_GENERATION == "true") {
-                        echo "Skipping test generation."
-                        return
-                    }
+                    def files = env.FILES_TO_PROCESS.split("\\n")
 
-                    def files = env.CHANGED_FILES.split("\\n")
+                    files.each { sourceFile ->
 
-                    files.each { file ->
+                        echo "===================================="
+                        echo "Processing ${sourceFile}"
+                        echo "===================================="
 
-                        echo "Processing ${file}"
+                        def sourceCode = readFile(sourceFile)
 
-                        def sourceCode = readFile(file)
+                        def testFile = sourceFile
+                                .replace("src/main/java", "src/test/java")
+                                .replace(".java", "Test.java")
 
                         def payload = JsonOutput.toJson([
                                 model : "qwen2.5:7b",
                                 prompt: """
-Generate JUnit 5 tests for the following Java class.
+You are a senior Spring Boot developer.
+
+Generate a complete JUnit 5 test class.
 
 Requirements:
 - Spring Boot 3
 - JUnit 5
-- Mockito where appropriate
+- Mockito when necessary
+- Correct package declaration
+- Correct imports
 - Return ONLY Java code
+- No markdown
+- No explanations
 
-Class:
+Source Class:
 
 ${sourceCode}
 """,
@@ -89,35 +149,65 @@ ${sourceCode}
                                 returnStdout: true
                         ).trim()
 
-                        def result = new JsonSlurper().parseText(response)
+                        def result =
+                                new JsonSlurper()
+                                        .parseText(response)
 
-                        echo "================================="
-                        echo "Generated Test For ${file}"
-                        echo "================================="
-                        echo result.response
-                        echo "================================="
+                        def parentDir =
+                                testFile.substring(
+                                        0,
+                                        testFile.lastIndexOf('/')
+                                )
 
-                        env.TextFile = result.response
+                        sh "mkdir -p '${parentDir}'"
+
+                        writeFile(
+                                file: testFile,
+                                text: result.response
+                        )
+
+                        echo "Generated:"
+                        echo testFile
                     }
                 }
             }
         }
 
-        stage("writing into a file"){
-            steps{
+        stage('Compile Generated Tests') {
 
-                script{
-                    if (env.SKIP_TEST_GENERATION == "true") {
-                        echo "Skipping test generation."
-                        return
-                    }
-
-                    writeFile(
-                        file: "src/test/java/.../GeneratedTest.java",
-                        text: env.TextFile
-                    )
+            when {
+                expression {
+                    env.SKIP_PIPELINE != "true"
                 }
             }
+
+            steps {
+                sh './mvnw test-compile'
+            }
+        }
+
+        stage('push code to git'){
+            steps{
+                script{
+                    sh """
+                    git checkout -b ai/tests
+                    git add .
+                    git commit -m "generates tests"
+                    git push
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo "Pipeline completed successfully."
+        }
+
+        failure {
+            echo "Pipeline failed."
         }
     }
 }
