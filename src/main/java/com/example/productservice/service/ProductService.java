@@ -19,6 +19,10 @@ public class ProductService {
         return product;
     }
 
+    public List<Product> getAllProducts() {
+        return products;
+    }
+
     public Product getProduct(Long id) {
         return products.stream()
                 .filter(product -> product.getId().equals(id))
@@ -26,7 +30,31 @@ public class ProductService {
                 .orElse(null);
     }
 
-    public List<Product> getAllProducts() {
-        return products;
+    public Product updateProduct(Long id, Product updatedProduct) {
+
+        Product existingProduct = getProduct(id);
+
+        if (existingProduct == null) {
+            return null;
+        }
+
+        existingProduct.setName(updatedProduct.getName());
+        existingProduct.setPrice(updatedProduct.getPrice());
+
+        return existingProduct;
+    }
+
+    public boolean deleteProduct(Long id) {
+        return products.removeIf(product -> product.getId().equals(id));
+    }
+
+    public List<Product> searchProducts(String name) {
+
+        return products.stream()
+                .filter(product ->
+                        product.getName()
+                                .toLowerCase()
+                                .contains(name.toLowerCase()))
+                .toList();
     }
 }

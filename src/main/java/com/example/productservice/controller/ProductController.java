@@ -24,6 +24,11 @@ public class ProductController {
         return productService.addProduct(product);
     }
 
+    @GetMapping
+    public List<Product> getAllProducts() {
+        return productService.getAllProducts();
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Product> getProduct(@PathVariable Long id) {
 
@@ -36,9 +41,37 @@ public class ProductController {
         return ResponseEntity.ok(product);
     }
 
-    @GetMapping
-    public List<Product> getAllProducts() {
-        return productService.getAllProducts();
+    @PutMapping("/{id}")
+    public ResponseEntity<Product> updateProduct(
+            @PathVariable Long id,
+            @RequestBody Product product) {
+
+        Product updatedProduct =
+                productService.updateProduct(id, product);
+
+        if (updatedProduct == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(updatedProduct);
     }
-    
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+
+        boolean deleted = productService.deleteProduct(id);
+
+        if (!deleted) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/search")
+    public List<Product> searchProducts(
+            @RequestParam String name) {
+
+        return productService.searchProducts(name);
+    }
 }
