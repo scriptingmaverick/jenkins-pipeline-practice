@@ -128,7 +128,15 @@ pipeline {
                             prompt: """
                         You are a Java code generator.
 
-                        Generate a JUnit 5 test class.
+                        Generate JUnit 5 tests.
+
+                        Rules:
+                        - Include all imports.
+                        - Use only public methods.
+                        - Never access private fields.
+                        - Never use reflection.
+                        - Return only Java code.
+                        - Ensure code compiles.
 
                         STRICT RULES:
 
@@ -173,6 +181,18 @@ pipeline {
                                 .replace("```java", "")
                                 .replace("```", "")
                                 .trim()
+
+                        if (!generatedCode.contains("@Test")) {
+                            error("Generated file contains no tests")
+                        }
+
+                        if (generatedCode.contains(".products")) {
+                            error("AI accessed private field")
+                        }
+
+                        if (!generatedCode.trim().endsWith("}")) {
+                            error("Generated Java file appears truncated")
+                        }
 
                         def packageIndex = generatedCode.indexOf("package ")
 
